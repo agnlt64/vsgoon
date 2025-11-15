@@ -1,21 +1,18 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import { getRandomNSFWCategory, getRandomSFWCategory } from './api-categories';
 
 type ApiResponse = {
 	url?: string;
 	files?: string[];
 }
 
-type Settings = {
-	allowNSFW: boolean;
-	autoRefresh: boolean;
-}
-
-function getClientCode(context: vscode.ExtensionContext, image: vscode.Uri): string {
+function getClientCode(context: vscode.ExtensionContext, image: vscode.Uri, category: string): string {
 	try {
 		const path = vscode.Uri.joinPath(context.extensionUri, 'media', 'client.html');
 		let data = fs.readFileSync(path.fsPath, 'utf8');
 		data = data.replace('${imageUrl}', image.toString());
+		data = data.replace('${category}', category);
 		return data;
 	} catch (err) {
 		console.error('Error reading client.html:', err);
@@ -25,115 +22,155 @@ function getClientCode(context: vscode.ExtensionContext, image: vscode.Uri): str
 
 class GoonImageProvider implements vscode.WebviewViewProvider {
 	private apiUrl: URL;
-	private images: vscode.Uri[];
+	private images: vscode.Uri[] = [];
+	private category: string = '';
 	private lastIdx: number = 0;
 	private view?: vscode.WebviewView;
-	private settings: Settings;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
-		this.images = [];
-		this.apiUrl = new URL('/many/sfw/smile', 'https://api.waifu.pics/');
-		this.settings = this.getSettings();
+		this.apiUrl = new URL('https://api.waifu.pics/');
 	}
 
-	private getSettings(): Settings {
-		return this.context.globalState.get('vsgoon.settings', {
-			allowNSFW: false,
-			autoRefresh: true
-		});
+	private getConfig() {
+		return vscode.workspace.getConfiguration('vsgoon');
 	}
 
-	private async saveSettings(settings: Settings) {
-		this.settings = settings;
-		await this.context.globalState.update('vsgoon.settings', settings);
-	}
-
-	private  updateURL(settings: Settings) {
-		if (settings.autoRefresh) {
-			this.apiUrl.pathname = '/many';
-			if (settings.allowNSFW) {
-				this.apiUrl.pathname += '/nsfw';
-			} else {
-				this.apiUrl.pathname += '/sfw';
-			}
-		} else {
-			if (settings.allowNSFW) {
-				this.apiUrl.pathname = '/nsfw';
-			} else {
-				this.apiUrl.pathname = '/sfw';
-			}
-		}
-		console.log(this.apiUrl.toString());
-	}
-
-	private async fetchManyImages() {
-		console.log('Fetching many images from API...');
-		const res = await fetch(this.apiUrl,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ exclude: [] })
-			}
-		);
-		const data = await res.json() as ApiResponse;
-		this.images = (data.files || []).map(file => vscode.Uri.parse(file));
-	}
-
-	private async getNextImage(): Promise<vscode.Uri> {
-		this.lastIdx = (this.lastIdx + 1) % this.images.length;
-		const nextImage = this.images[this.lastIdx];
-
-		if (this.lastIdx === this.images.length - 1) {
-			await this.fetchManyImages();
-			this.lastIdx = -1; // will be set to 0 on next call
-		}
-
-		return nextImage;
-	}
-
-	private async getHtmlForWebview(webview: vscode.Webview) {
-		const image = await this.getNextImage();
-		const clientCode = getClientCode(this.context, image);
-		return clientCode;
-	}
-
-	async resolveWebviewView(webviewView: vscode.WebviewView) {
-		webviewView.webview.options = {
-			enableScripts: true,
-		};
-		this.view = webviewView;
-		// initial fetch
-		await this.fetchManyImages();
+	private updateURL() {
+		const config = this.getConfig();
+		const allowNSFW = config.get<boolean>('allowNSFW', false);
+		const autoRefresh = config.get<boolean>('autoRefresh', true);
 		
-		webviewView.webview.html = await this.getHtmlForWebview(webviewView.webview);
+		// Build pathname
+		const mode = autoRefresh ? '/many' : '';
+		const rating = allowNSFW ? '/nsfw' : '/sfw';
+		this.category = allowNSFW ? getRandomNSFWCategory() : getRandomSFWCategory();
+		
+		this.apiUrl.pathname = `${mode}${rating}/${this.category}`;
+		console.log(`Updated API URL to: ${this.apiUrl.toString()}`);
+	}
+
+	private async fetchImages() {
+		try {
+			console.log(`Fetching images from ${this.apiUrl}...`);
+			const config = this.getConfig();
+			const autoRefresh = config.get<boolean>('autoRefresh', true);
+			
+			const response = autoRefresh
+				? await fetch(this.apiUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ exclude: [] }),
+					})
+				: await fetch(this.apiUrl);
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data = await response.json() as ApiResponse;
+			console.log('API response:', data);
+			
+			this.images = data.files 
+				? data.files.map(file => vscode.Uri.parse(file))
+				: data.url ? [vscode.Uri.parse(data.url)] : [];
+			
+			console.log(`Loaded ${this.images.length} images`);
+		} catch (error) {
+			console.error('Error fetching images:', error);
+			this.images = [];
+		}
+	}
+
+	private async getNextImage(): Promise<vscode.Uri | undefined> {
+		if (this.images.length === 0) {
+			await this.fetchImages();
+		}
+
+		if (this.images.length === 0) {
+			console.error('No images available');
+			return undefined;
+		}
+
+		const currentImage = this.images[this.lastIdx];
+		this.lastIdx = (this.lastIdx + 1) % this.images.length;
+
+		if (this.lastIdx === 0) {
+			// We've cycled through all images, fetch more
+			await this.fetchImages();
+		}
+
+		return currentImage;
+	}
+
+	private getRefreshDelay(): number {
+		const config = this.getConfig();
+		const autoRefresh = config.get<boolean>('autoRefresh', true);
+		const refreshDelay = config.get<number>('refreshDelay', 5);
+		return autoRefresh ? refreshDelay : -1;
+	}
+
+	private async sendImageUpdate(image: vscode.Uri | undefined) {
+		if (this.view && image) {
+			this.view.webview.postMessage({
+				command: 'updateImage',
+				imageUrl: image.toString(),
+				category: this.category,
+				refreshDelay: this.getRefreshDelay()
+			});
+		}
+	}
+
+	private async handleImageRequest() {
+		const nextImage = await this.getNextImage();
+		if (nextImage) {
+			await this.sendImageUpdate(nextImage);
+		}
+	}
+
+	private async handleCategoryRequest() {
+		this.updateURL();
+		await this.fetchImages();
+		await this.handleImageRequest();
+	}
+
+	public async updateSettings() {
+		this.updateURL();
+		await this.fetchImages();
+		await this.handleImageRequest();
+	}
+
+	public async resolveWebviewView(webviewView: vscode.WebviewView) {
+		webviewView.webview.options = { enableScripts: true };
+		this.view = webviewView;
+
+		this.updateURL();
+		await this.fetchImages();
+
+		const firstImage = await this.getNextImage();
+		if (!firstImage) {
+			console.error('Failed to load initial image');
+			return;
+		}
+
+		webviewView.webview.html = getClientCode(this.context, firstImage, this.category);
+		
+		// Send initial settings after webview loads
+		setTimeout(async () => {
+			await this.sendImageUpdate(firstImage);
+		}, 100);
 		
 		// Handle messages from the webview
 		webviewView.webview.onDidReceiveMessage(async message => {
-			if (message.command === 'getNextImage') {
-				const nextImage = await this.getNextImage();
-				webviewView.webview.postMessage({ command: 'updateImage', imageUrl: nextImage.toString() });
-			} else if (message.command === 'updateSettings') {
-				const settings: Settings = {
-					allowNSFW: message.allowNsfw,
-					autoRefresh: message.autoRefresh
-				};
-				await this.saveSettings(settings);
-				this.updateURL(settings);
-				vscode.window.showInformationMessage('Settings have been updated!');
-			} else if (message.command === 'getSettings') {
-				webviewView.webview.postMessage({ 
-					command: 'restoreSettings', 
-					allowNsfw: this.settings.allowNSFW,
-					autoRefresh: this.settings.autoRefresh
-				});
+			switch (message.command) {
+				case 'getNextImage':
+				case 'requestNewImage':
+					await this.handleImageRequest();
+					break;
+				case 'requestNewCategory':
+					await this.handleCategoryRequest();
+					break;
 			}
 		});
-	}
-
-	async revealSettings() {
-		if (this.view) {
-			this.view.webview.postMessage({ command: 'openSettings' });
-		} 
 	}
 }
 
@@ -141,16 +178,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const provider = new GoonImageProvider(context);
 	
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(
-			'goonView', provider
-		)
+		vscode.window.registerWebviewViewProvider('goonView', provider),
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('vsgoon')) {
+				provider.updateSettings();
+			}
+		})
 	);
-
-	context.subscriptions.push(
-        vscode.commands.registerCommand("vsgoon.openSettings", () => {
-            provider.revealSettings();
-        })
-    );
 }
 
 export function deactivate() {}
