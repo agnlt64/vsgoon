@@ -7,15 +7,35 @@
     "vscode": "^1.106.0"
   },
   "categories": [
-    "Other"
+    "Education"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "menus": {
+      "view/title": [
+        {
+          "command": "vsgoon.openSettings",
+          "when": "view == goonView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "goonView",
+          "name": "Goon Corner",
+          "type": "webview",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "vsgoon.helloWorld",
-        "title": "Hello World"
+        "command": "vsgoon.openSettings",
+        "title": "Settings",
+        "icon": "$(gear)"
       }
     ]
   },

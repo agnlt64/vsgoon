@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <style>
+        #settings {
+            display: flex;
+            flex-direction: column;
+        }
+        #title {
+            font-weight: bold;
+            font-size: medium;
+        }
+        #confirm-settings {
+            margin: 0.5rem 0;
+            padding: 0.5rem 0;
+            background-color: #d500b9;
+            color: #fff;
+            outline: none;
+            border: 1px solid #fff;
+            border-radius: 0.25rem;
+            transition: 0.2s background-color;
+        }
+
+        #confirm-settings:hover {
+            background-color: #be01a5;
+            cursor: pointer;
+        }
+    </style>
+    
+    <div id="settings">
+        <span id="title">Settings:</span>
+        <div>
+            <span>Allow NSFW</span>
+            <input type="checkbox" id="nsfw">
+        </div>
+        <div>
+            <span>Auto-refresh</span>
+            <input type="checkbox" id="auto-refresh" checked>
+        </div>
+        <div>
+            <span>Refresh delay (s)</span>
+            <input type="number" id="refresh-delay" value="5" min="1" max="60">
+        </div>
+        <button id="confirm-settings">Confirm</button>
+    </div>
+    <img src="${imageUrl}" id="goon-image" alt="">
+</body>
+<script>
+    const vscode = acquireVsCodeApi();
+    const img = document.getElementById('goon-image');
+
+    const settings = document.getElementById('settings');
+    const confirmBtn = document.getElementById('confirm-settings');
+    const allowNsfw = document.getElementById('nsfw');
+    const autoRefresh = document.getElementById('auto-refresh');
+    const refreshDelay = document.getElementById('refresh-delay');
+
+    // Listen for image updates from extension
+    window.addEventListener('message', event => {
+        const message = event.data;
+        if (message.command === 'updateImage') {
+            img.src = message.imageUrl;
+        } else if (message.command == 'openSettings') {
+            settings.style.display = 'flex';
+        } else if (message.command === 'restoreSettings') {
+            allowNsfw.checked = message.allowNsfw;
+            autoRefresh.checked = message.autoRefresh;
+        }
+    });
+
+    // Request settings on load
+    vscode.postMessage({ command: 'getSettings' });
+
+    confirmBtn.addEventListener('click', () => {
+        vscode.postMessage({ 
+            command: 'updateSettings', 
+            allowNsfw: allowNsfw.checked, 
+            autoRefresh: autoRefresh.checked, 
+        });
+        settings.style.display = 'none';
+    });
+
+    // Request new image every n seconds
+    const delay = parseInt(refreshDelay.value) * 1000;
+    setInterval(() => {
+        vscode.postMessage({ command: 'getNextImage' });
+    }, delay);
+
+    // Request first update after n seconds
+    setTimeout(() => {
+        vscode.postMessage({ command: 'getNextImage' }, delay);
+}, delay);
+</script>
+</html>
