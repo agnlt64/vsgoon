@@ -7,8 +7,12 @@
     "vscode": "^1.106.0"
   },
   "categories": [
-    "Education"
+    "Other"
   ],
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/agnlt64/vsgoon"
+  },
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
