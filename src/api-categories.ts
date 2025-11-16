@@ -1,5 +1,5 @@
 
-const SFW_CATEGORIES: string[] = [
+const WAIFU_PICS_SFW_CATEGORIES: string[] = [
     "waifu",
     "neko",
     "shinobu",
@@ -33,19 +33,31 @@ const SFW_CATEGORIES: string[] = [
     "cringe",
 ];
 
-const NSFW_CATEGORIES: string[] = [
+const WAIFU_PICS_NSFW_CATEGORIES: string[] = [
     "waifu",
     "neko",
     "trap",
     "blowjob",
 ];
 
-export function getRandomSFWCategory(): string {
-    const idx = Math.floor(Math.random() * SFW_CATEGORIES.length);
-    return SFW_CATEGORIES[idx];
+const WAIFU_IM_SFW_CATEGORIES: string[] = [
+    "maid",
+    "oppai",
+];
+
+const WAIFU_IM_NSFW_CATEGORIES: string[] = [
+    "ass",
+    "ecchi",
+];
+
+export function getRandomSFWCategory(provider: string): string {
+    const categories = provider === 'waifu.pics' ? WAIFU_PICS_SFW_CATEGORIES : WAIFU_IM_SFW_CATEGORIES;
+    const idx = Math.floor(Math.random() * categories.length);
+    return categories[idx];
 }
 
-export function getRandomNSFWCategory(): string {
-    const idx = Math.floor(Math.random() * NSFW_CATEGORIES.length);
-    return NSFW_CATEGORIES[idx];
+export function getRandomNSFWCategory(provider: string): string {
+    const categories = provider === 'waifu.pics' ? WAIFU_PICS_NSFW_CATEGORIES : WAIFU_IM_NSFW_CATEGORIES;
+    const idx = Math.floor(Math.random() * categories.length);
+    return categories[idx];
 }

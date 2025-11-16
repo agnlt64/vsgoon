@@ -3,7 +3,7 @@
   "displayName": "vsgoon",
   "description": "goon corner for vscode",
   "icon": "images/icon.jpg",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -31,6 +31,16 @@
     "configuration": {
       "title": "Goon Corner",
       "properties": {
+        "vsgoon.provider": {
+          "type": "string",
+          "enum": ["waifu.pics", "waifu.im"],
+          "enumDescriptions": [
+            "waifu.pics - gifs and images, lots of SFW content, hardcore NSFW. using all available categories.",
+            "waifu.im - only images, high res, lots of NSFW and ecchi content. using categories: maid (sfw), oppai (sfw), ass (nsfw), ecchi (nsfw)."
+          ],
+          "default": "waifu.pics",
+          "description": "goon images provider"
+        },
         "vsgoon.allowNSFW": {
           "type": "boolean",
           "default": false,

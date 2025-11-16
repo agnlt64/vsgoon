@@ -11,3 +11,7 @@
 ## [0.0.3]
 
 - changelog update
+
+## [0.1.0]
+
+- introduce customizable providers

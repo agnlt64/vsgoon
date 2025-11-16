@@ -6,5 +6,6 @@ this is the perfect extension when you are bored of your code. just open the `vs
 
 ## settings
 ![screenshot](./images/settings.png)
+![screenshot](./images/providers.png)
 
 mess around with the settings to unlock the full potential of the `vsgoon©` extension.

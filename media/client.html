@@ -7,7 +7,7 @@
 </head>
 <body>
     <style>
-        #random-category {
+        #new-image {
             display: block;
             width: 100%;
             margin: 0.5rem 0;
@@ -19,25 +19,25 @@
             border-radius: 0.25rem;   
         }
 
-        #random-category:hover {
+        #new-image:hover {
             background-color: #be01a5;
             cursor: pointer;
         }
     </style>
     <p>Category: <span id="category">${category}</span></p>
     <img src="${imageUrl}" id="goon-image" alt="">
-    <button id="random-category">Random category</button>
+    <button id="new-image">New image</button>
 </body>
 <script>
     const vscode = acquireVsCodeApi();
     const img = document.getElementById('goon-image');
     const categorySpan = document.getElementById('category');
-    const randomCategoryButton = document.getElementById('random-category');
+    const newImageButton = document.getElementById('new-image');
 
     let refreshDelay = -1;
     let refreshInterval = null;
 
-    randomCategoryButton.addEventListener('click', () => {
+    newImageButton.addEventListener('click', () => {
         vscode.postMessage({ command: 'requestNewCategory' });
     });
 

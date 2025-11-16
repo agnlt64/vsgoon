@@ -2,10 +2,16 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { getRandomNSFWCategory, getRandomSFWCategory } from './api-categories';
 
-type ApiResponse = {
+type WaifuPicsApiResponse = {
 	url?: string;
 	files?: string[];
 }
+
+type WaifuIMApiResponse = {
+	images: { url: string }[];
+}
+
+type Provider = 'waifu.pics' | 'waifu.im';
 
 function getClientCode(context: vscode.ExtensionContext, image: vscode.Uri, category: string): string {
 	try {
@@ -28,7 +34,9 @@ class GoonImageProvider implements vscode.WebviewViewProvider {
 	private view?: vscode.WebviewView;
 
 	constructor(private readonly context: vscode.ExtensionContext) {
-		this.apiUrl = new URL('https://api.waifu.pics/');
+		const config = this.getConfig();
+		const provider = config.get<Provider>('provider', 'waifu.pics');
+		this.apiUrl = new URL(`https://api.${provider}/`);
 	}
 
 	private getConfig() {
@@ -37,15 +45,27 @@ class GoonImageProvider implements vscode.WebviewViewProvider {
 
 	private updateURL() {
 		const config = this.getConfig();
+		const provider = config.get<Provider>('provider', 'waifu.pics');
 		const allowNSFW = config.get<boolean>('allowNSFW', false);
 		const autoRefresh = config.get<boolean>('autoRefresh', true);
 		
+		this.apiUrl.host = `api.${provider}`;
+		this.category = allowNSFW ? getRandomNSFWCategory(provider) : getRandomSFWCategory(provider);
 		// Build pathname
-		const mode = autoRefresh ? '/many' : '';
-		const rating = allowNSFW ? '/nsfw' : '/sfw';
-		this.category = allowNSFW ? getRandomNSFWCategory() : getRandomSFWCategory();
-		
-		this.apiUrl.pathname = `${mode}${rating}/${this.category}`;
+		if (provider === 'waifu.pics') {
+			const mode = autoRefresh ? '/many' : '';
+			const rating = allowNSFW ? '/nsfw' : '/sfw';
+			
+			this.apiUrl.pathname = `${mode}${rating}/${this.category}`;
+		} else if (provider === 'waifu.im') {
+			this.apiUrl.pathname = '/search';
+			this.apiUrl.searchParams.set('included_tags', this.category);
+			if (autoRefresh) {
+				this.apiUrl.searchParams.set('limit', '30');
+			}
+		} else {
+			console.error(`Unknown provider: ${provider}`);
+		}
 		console.log(`Updated API URL to: ${this.apiUrl.toString()}`);
 	}
 
@@ -53,28 +73,35 @@ class GoonImageProvider implements vscode.WebviewViewProvider {
 		try {
 			console.log(`Fetching images from ${this.apiUrl}...`);
 			const config = this.getConfig();
+			const provider = config.get<Provider>('provider', 'waifu.pics');
 			const autoRefresh = config.get<boolean>('autoRefresh', true);
 			
-			const response = autoRefresh
-				? await fetch(this.apiUrl, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ exclude: [] }),
-					})
-				: await fetch(this.apiUrl);
+			if (provider === 'waifu.pics') {
+				const response = autoRefresh
+					? await fetch(this.apiUrl, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ exclude: [] }),
+						})
+					: await fetch(this.apiUrl);
+	
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+	
+				const data = await response.json() as WaifuPicsApiResponse;
 
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-
-			const data = await response.json() as ApiResponse;
-			console.log('API response:', data);
-			
-			this.images = data.files 
+				this.images = data.files 
 				? data.files.map(file => vscode.Uri.parse(file))
 				: data.url ? [vscode.Uri.parse(data.url)] : [];
-			
-			console.log(`Loaded ${this.images.length} images`);
+			} else if (provider === 'waifu.im') {
+				const response = await fetch(this.apiUrl);
+				const data = await response.json() as WaifuIMApiResponse;
+
+				this.images = data.images
+				? data.images.map(img => vscode.Uri.parse(img.url))
+				: [];
+			}
 		} catch (error) {
 			console.error('Error fetching images:', error);
 			this.images = [];
