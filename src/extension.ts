@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { getRandomNSFWCategory, getRandomSFWCategory } from './api-categories';
+import type { Provider } from './api-categories';
 
 type WaifuPicsApiResponse = {
 	url?: string;
@@ -10,8 +11,6 @@ type WaifuPicsApiResponse = {
 type WaifuIMApiResponse = {
 	images: { url: string }[];
 }
-
-type Provider = 'waifu.pics' | 'waifu.im';
 
 function getClientCode(context: vscode.ExtensionContext, image: vscode.Uri, category: string): string {
 	try {
@@ -50,7 +49,7 @@ class GoonImageProvider implements vscode.WebviewViewProvider {
 		const autoRefresh = config.get<boolean>('autoRefresh', true);
 		
 		this.apiUrl.host = `api.${provider}`;
-		this.category = allowNSFW ? getRandomNSFWCategory(provider) : getRandomSFWCategory(provider);
+		this.category = allowNSFW ? getRandomNSFWCategory(config) : getRandomSFWCategory(config);
 		// Build pathname
 		if (provider === 'waifu.pics') {
 			const mode = autoRefresh ? '/many' : '';

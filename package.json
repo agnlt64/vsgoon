@@ -3,7 +3,7 @@
   "displayName": "vsgoon",
   "description": "goon corner for vscode",
   "icon": "images/icon.jpg",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -33,13 +33,87 @@
       "properties": {
         "vsgoon.provider": {
           "type": "string",
-          "enum": ["waifu.pics", "waifu.im"],
+          "enum": [
+            "waifu.pics",
+            "waifu.im"
+          ],
           "enumDescriptions": [
             "waifu.pics - gifs and images, lots of SFW content, hardcore NSFW. using all available categories.",
             "waifu.im - only images, high res, lots of NSFW and ecchi content. using categories: maid (sfw), oppai (sfw), ass (nsfw), ecchi (nsfw)."
           ],
           "default": "waifu.pics",
           "description": "goon images provider"
+        },
+        "vsgoon.waifuPicsCategories": {
+          "type": "object",
+          "title": "categories",
+          "properties": {
+            "sfw": {
+              "type": "array",
+              "default": [
+                "waifu",
+                "neko",
+                "shinobu",
+                "megumin",
+                "bully",
+                "cuddle",
+                "cry",
+                "hug",
+                "awoo",
+                "kiss",
+                "lick",
+                "pat",
+                "smug",
+                "bonk",
+                "yeet",
+                "blush",
+                "smile",
+                "wave",
+                "highfive",
+                "handhold",
+                "nom",
+                "bite",
+                "glomp",
+                "slap",
+                "kill",
+                "kick",
+                "happy",
+                "wink",
+                "poke",
+                "dance",
+                "cringe"
+              ]
+            },
+            "nsfw": {
+              "type": "array",
+              "default": [
+                "waifu",
+                "neko",
+                "trap",
+                "blowjob"
+              ]
+            }
+          }
+        },
+        "vsgoon.waifuImCategories": {
+          "type": "object",
+          "title": "categories",
+          "properties": {
+            "sfw": {
+              "type": "array",
+              "default": [
+                "maid",
+                "oppai"
+              ]
+            },
+            "nsfw": {
+              "type": "array",
+              "default": [
+                "ass",
+                "ecchi"
+              ]
+            }
+          }
         },
         "vsgoon.allowNSFW": {
           "type": "boolean",
